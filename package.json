@@ -1,0 +1,14 @@
+{
+  "name": "impactocont-online",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Versão online profissional do contrato automático com geração de PDF no servidor.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "puppeteer": "^24.7.1"
+  }
+}
