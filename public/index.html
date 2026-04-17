@@ -579,14 +579,41 @@
       return `<div class="linha"><strong>${label}</strong><div class="valor-linha">${value || '&nbsp;'}</div></div>`;
     }
 
-    function parcelasTabela() {
+    function montarParcelasDeOrigem(getValue) {
       const linhas = [];
       for (let i = 1; i <= 4; i++) {
-        const valorParcela = valor('cuota' + i);
-        const dataParcela = valor('fechaCuota' + i);
+        const valorParcela = (getValue('cuota' + i) || '').trim();
+        const dataParcela = (getValue('fechaCuota' + i) || '').trim();
         if (!dataValidaISO(dataParcela)) continue;
-        linhas.push(`<tr><td>${i}ª cuota</td><td>${valorParcela || ''}</td><td>${formatarDataBR(dataParcela)}</td></tr>`);
+        linhas.push({
+          numero: i,
+          valor: valorParcela || (i === 1 ? (getValue('valorTotal') || '').trim() : ''),
+          data: dataParcela
+        });
       }
+
+      const quantidade = parseInt((getValue('cantidadCuotas') || '0').trim(), 10) || 0;
+      if (!linhas.length && quantidade >= 1) {
+        const valorPrimeira = (getValue('cuota1') || getValue('valorTotal') || '').trim();
+        const dataPrimeira = (getValue('fechaCuota1') || getValue('fechaContrato') || '').trim();
+        if (dataValidaISO(dataPrimeira)) {
+          linhas.push({ numero: 1, valor: valorPrimeira, data: dataPrimeira });
+        }
+      }
+
+      return linhas;
+    }
+
+    function obterParcelasFormulario() {
+      return montarParcelasDeOrigem((campo) => valor(campo));
+    }
+
+    function obterParcelasContrato(c) {
+      return montarParcelasDeOrigem((campo) => c?.[campo] || '');
+    }
+
+    function parcelasTabela() {
+      const linhas = obterParcelasFormulario().map(p => `<tr><td>${p.numero}ª cuota</td><td>${p.valor || ''}</td><td>${formatarDataBR(p.data)}</td></tr>`);
       return linhas.join('') || '<tr><td colspan="3">Sin cuotas registradas.</td></tr>';
     }
 
@@ -725,7 +752,9 @@ body{background:white;padding:0;margin:0;} .preview{margin:0;border:0;padding:0;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      setTimeout(() => {
+        try { URL.revokeObjectURL(url); } catch (_) {}
+      }, 15000);
     }
 
     function getPrintStyles() {
@@ -866,23 +895,20 @@ body{background:white;padding:0;margin:0;} .preview{margin:0;border:0;padding:0;
       const hoje = hojeISO();
       const parcelas = [];
       getContratos().forEach(c => {
-        for (let i = 1; i <= 4; i++) {
-          const valorParcela = c['cuota' + i];
-          const data = c['fechaCuota' + i];
-          if (!dataValidaISO(data)) continue;
-          if (data >= hoje) {
+        obterParcelasContrato(c).forEach(p => {
+          if (p.data >= hoje) {
             parcelas.push({
-              id: `${c.id}-${i}`,
+              id: `${c.id}-${p.numero}`,
               contratoId: c.id,
               contratante: c.contratante || '',
               evento: montarTituloEvento(c),
-              vencimento: data,
-              parcela: `${i}ª parcela`,
-              valor: valorParcela || '',
-              valorNumero: parseValorNumero(valorParcela)
+              vencimento: p.data,
+              parcela: `${p.numero}ª parcela`,
+              valor: p.valor || '',
+              valorNumero: parseValorNumero(p.valor)
             });
           }
-        }
+        });
       });
       return parcelas.sort((a,b) => a.vencimento.localeCompare(b.vencimento) || a.contratante.localeCompare(b.contratante));
     }
@@ -942,8 +968,7 @@ body{background:white;padding:0;margin:0;} .preview{margin:0;border:0;padding:0;
     function mostrarDetalheContrato(id) {
       const c = getContratos().find(x => x.id === id); if (!c) return;
       contratoSelecionadoId = id;
-      const parcelas = [];
-      for (let i = 1; i <= 4; i++) if (dataValidaISO(c['fechaCuota'+i] || '')) parcelas.push(`<tr><td>${i}ª parcela</td><td>${c['cuota'+i] || ''}</td><td>${formatarDataBR(c['fechaCuota'+i] || '')}</td></tr>`);
+      const parcelas = obterParcelasContrato(c).map(p => `<tr><td>${p.numero}ª parcela</td><td>${p.valor || ''}</td><td>${formatarDataBR(p.data || '')}</td></tr>`);
       document.getElementById('detalheBusca').innerHTML = `
         <h3 style="margin-top:0;">${c.contratante || 'Sem nome'}</h3>
         <div class="muted" style="margin-bottom:10px;">${montarTituloEvento(c)}</div>

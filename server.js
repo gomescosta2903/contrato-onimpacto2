@@ -20,11 +20,20 @@ app.post('/api/export-pdf', async (req, res) => {
   try {
     browser = await puppeteer.launch({
       headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1240, height: 1754, deviceScaleFactor: 1 });
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: ['domcontentloaded', 'networkidle0'] });
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -32,12 +41,15 @@ app.post('/api/export-pdf', async (req, res) => {
       margin: { top: '0', right: '0', bottom: '0', left: '0' }
     });
     const safeName = String(fileName || 'Contrato.pdf').replace(/[^a-zA-Z0-9._\-\sà-ÿÀ-ß]/g, '_');
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
-    res.send(pdf);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${safeName}"`,
+      'Content-Length': pdf.length
+    });
+    return res.end(pdf);
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
-    res.status(500).send('Falha ao gerar o PDF no servidor.');
+    return res.status(500).send('Falha ao gerar o PDF no servidor.');
   } finally {
     if (browser) await browser.close();
   }
