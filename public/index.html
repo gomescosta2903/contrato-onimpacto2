@@ -464,12 +464,32 @@
     function valor(id) { return document.getElementById(id).value || ''; }
     function hojeISO() { return new Date().toISOString().slice(0,10); }
     function normalizar(txt) { return (txt || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+    function normalizarDataISO(data) {
+      const valor = (data || '').toString().trim();
+      if (!valor) return '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+
+      const matchBR = valor.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+      if (matchBR) {
+        const [, dia, mes, ano] = matchBR;
+        return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+      }
+
+      const matchISO = valor.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+      if (matchISO) {
+        const [, ano, mes, dia] = matchISO;
+        return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+      }
+
+      return valor;
+    }
     function formatarDataBR(data) {
-      if (!data) return '';
-      const [ano, mes, dia] = data.split('-');
+      const normalizada = normalizarDataISO(data);
+      if (!normalizada) return '';
+      const [ano, mes, dia] = normalizada.split('-');
       return ano && mes && dia ? `${dia}/${mes}/${ano}` : data;
     }
-    function dataValidaISO(data) { return /^\d{4}-\d{2}-\d{2}$/.test(data); }
+    function dataValidaISO(data) { return /^\d{4}-\d{2}-\d{2}$/.test(normalizarDataISO(data)); }
     function parseValorNumero(texto) {
       if (!texto) return 0;
       const limpo = texto.toString().replace(/\./g,'').replace(',', '.').replace(/[^0-9.-]/g, '');
@@ -569,8 +589,13 @@
       ordemCampos.forEach((campo, i) => {
         const el = document.getElementById(campo); if (!el) return;
         if (campo === 'cantidadCuotas') {
-          const v = (campos[i] || '').trim(); el.value = ['1','2','3','4'].includes(v) ? v : '';
-        } else { el.value = campos[i] || ''; }
+          const v = (campos[i] || '').trim();
+          el.value = ['1','2','3','4'].includes(v) ? v : '';
+        } else if (campo.startsWith('fecha')) {
+          el.value = normalizarDataISO(campos[i] || '');
+        } else {
+          el.value = campos[i] || '';
+        }
       });
       if (valor('contratante')) document.getElementById('nomeArquivo').value = 'Contrato - ' + valor('contratante');
     }
@@ -584,25 +609,27 @@
 
   for (let i = 1; i <= 4; i++) {
     const valorParcela = (getValue('cuota' + i) || '').trim();
-    const dataParcela = (getValue('fechaCuota' + i) || '').trim();
+    const dataParcela = normalizarDataISO(getValue('fechaCuota' + i) || '');
 
-    if (!dataValidaISO(dataParcela)) continue;
+    if (!valorParcela && !dataParcela) continue;
 
     linhas.push({
       numero: i,
       valor: valorParcela || (i === 1 ? (getValue('valorTotal') || '').trim() : ''),
-      data: dataParcela
+      data: dataValidaISO(dataParcela)
+        ? dataParcela
+        : normalizarDataISO(getValue(i === 1 ? 'fechaContrato' : 'fechaEvento') || '')
     });
   }
 
   if (!linhas.length) {
     const valorPrimeira = (getValue('cuota1') || getValue('valorTotal') || '').trim();
-    const dataPrimeira = (
+    const dataPrimeira = normalizarDataISO(
       getValue('fechaCuota1') ||
       getValue('fechaContrato') ||
       getValue('fechaEvento') ||
       ''
-    ).trim();
+    );
 
     linhas.push({
       numero: 1,
@@ -745,6 +772,7 @@ body{background:white;padding:0;margin:0;} .preview{margin:0;border:0;padding:0;
         try {
           const handle = await window.showSaveFilePicker({
             suggestedName: nome,
+            startIn: 'downloads',
             types: [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }]
           });
           const writable = await handle.createWritable();
