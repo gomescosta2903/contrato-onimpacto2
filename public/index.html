@@ -580,38 +580,39 @@
     }
 
     function montarParcelasDeOrigem(getValue) {
-      const linhas = [];
-      for (let i = 1; i <= 4; i++) {
-        const valorParcela = (getValue('cuota' + i) || '').trim();
-        const dataParcela = (getValue('fechaCuota' + i) || '').trim();
-        if (!dataValidaISO(dataParcela)) continue;
-        linhas.push({
-          numero: i,
-          valor: valorParcela || (i === 1 ? (getValue('valorTotal') || '').trim() : ''),
-          data: dataParcela
-        });
-      }
+  const linhas = [];
 
-      if (!linhas.length) {
-        const valorPrimeira = (getValue('cuota1') || getValue('valorTotal') || '').trim();
-        const dataPrimeira = (
-          getValue('fechaCuota1') ||
-          getValue('fechaContrato') ||
-          getValue('fechaEvento') ||
-          ''
-        ).trim();
+  for (let i = 1; i <= 4; i++) {
+    const valorParcela = (getValue('cuota' + i) || '').trim();
+    const dataParcela = (getValue('fechaCuota' + i) || '').trim();
 
-        if (valorPrimeira || dataValidaISO(dataPrimeira)) {
-          linhas.push({
-            numero: 1,
-            valor: valorPrimeira,
-            data: dataValidaISO(dataPrimeira) ? dataPrimeira : ''
-          });
-        }
-      }
+    if (!dataValidaISO(dataParcela)) continue;
 
-      return linhas;
-    }
+    linhas.push({
+      numero: i,
+      valor: valorParcela || (i === 1 ? (getValue('valorTotal') || '').trim() : ''),
+      data: dataParcela
+    });
+  }
+
+  if (!linhas.length) {
+    const valorPrimeira = (getValue('cuota1') || getValue('valorTotal') || '').trim();
+    const dataPrimeira = (
+      getValue('fechaCuota1') ||
+      getValue('fechaContrato') ||
+      getValue('fechaEvento') ||
+      ''
+    ).trim();
+
+    linhas.push({
+      numero: 1,
+      valor: valorPrimeira,
+      data: dataPrimeira
+    });
+  }
+
+  return linhas;
+}
 
     function obterParcelasFormulario() {
       return montarParcelasDeOrigem((campo) => valor(campo));
